@@ -281,9 +281,9 @@
 
   (order query :created :asc)"
   ([query field dir]
-    (update-in query [:order] conj [field (or dir :ASC)]))
+   (update-in query [:order] conj [field (or dir :ASC)]))
   ([query field]
-    (order query field :ASC)))
+   (order query field :ASC)))
 
 (defn values
   "Add records to an insert clause. values can either be a vector of maps or a
@@ -300,13 +300,13 @@
 
 (defn add-joins
   ([query ent rel]
-     (add-joins query ent rel :left))
+   (add-joins query ent rel :left))
   ([query ent rel type]
-     (if-let [join-table (:join-table rel)]
-       (-> query
-           (join* type join-table (sfns/pred-= (:lpk rel) @(:lfk rel)))
-           (join* type ent (sfns/pred-= @(:rfk rel) (:rpk rel))))
-       (join* query type ent (sfns/pred-= (:pk rel) (:fk rel))))))
+   (if-let [join-table (:join-table rel)]
+     (-> query
+         (join* type join-table (sfns/pred-= (:lpk rel) @(:lfk rel)))
+         (join* type ent (sfns/pred-= @(:rfk rel) (:rpk rel))))
+     (join* query type ent (sfns/pred-= (:pk rel) (:fk rel))))))
 
 (defmacro join
   "Add a join clause to a select query, specifying an entity defined by defentity, or the table name to
@@ -320,17 +320,17 @@
   (join query :right addresses (= :address.users_id :users.id))"
   {:arglists '([query ent] [query type-or-table ent-or-clause] [query type table clause])}
   ([query ent]
-     `(join ~query :left ~ent))
+   `(join ~query :left ~ent))
   ([query type-or-table ent-or-clause]
-     `(if (entity? ~ent-or-clause)
-        (let [q# ~query
-              e# ~ent-or-clause
-              rel# (get-rel (:ent q#) e#)
-              type# ~type-or-table]
-          (add-joins q# e# rel# type#))
-        (join ~query :left ~type-or-table ~ent-or-clause)))
+   `(if (entity? ~ent-or-clause)
+      (let [q# ~query
+            e# ~ent-or-clause
+            rel# (get-rel (:ent q#) e#)
+            type# ~type-or-table]
+        (add-joins q# e# rel# type#))
+      (join ~query :left ~type-or-table ~ent-or-clause)))
   ([query type table clause]
-     `(join* ~query ~type ~table (eng/pred-map ~(eng/parse-where clause)))))
+   `(join* ~query ~type ~table (eng/pred-map ~(eng/parse-where clause)))))
 
 (defn post-query
   "Add a function representing a query that should be executed for each result
@@ -741,16 +741,15 @@
 
 (defn- with-one-to-one-later [rel query sub-ent body-fn]
   (let [sub-ent (assoc-db-to-entity query sub-ent)
-        [ent-key sub-ent-key] (get-join-keys rel (:ent query) sub-ent)]
+        [ent-key sub-ent-key] (get-join-keys rel (:ent query) sub-ent)
+        table (if (:alias rel) [(:table sub-ent) (:alias sub-ent)] (:table sub-ent))]
     (post-query query
                 (partial map
-                         (fn [ent]
-                           (merge-with-unique-keys (get-key-naming-strategy query)
-                                                   ent
-                                                   (first
-                                                     (select sub-ent
-                                                             (body-fn)
-                                                             (where {sub-ent-key (get ent ent-key)})))))))))
+                         #(assoc % table
+                            (first
+                              (select sub-ent
+                                      (body-fn)
+                                      (where {sub-ent-key (get % ent-key)}))))))))
 
 (defn- with-one-to-one-now [rel query sub-ent body-fn]
   (let [table (if (:alias rel) [(:table sub-ent) (:alias sub-ent)] (:table sub-ent))
@@ -778,8 +777,6 @@
   (let [{:keys [rel-type] :as rel} (get-rel (:ent query) sub-ent)
         transforms (seq (:transforms sub-ent))]
     (cond
-      (and (#{:belongs-to :has-one} rel-type)
-           (not transforms))     (with-one-to-one-now rel query sub-ent body-fn)
       (#{:belongs-to :has-one} rel-type) (with-one-to-one-later rel query sub-ent body-fn)
       (= :has-many rel-type)     (with-one-to-many rel query sub-ent body-fn)
       (= :many-to-many rel-type) (with-many-to-many rel query sub-ent body-fn)
